@@ -1,19 +1,8 @@
-const jwt = require('jsonwebtoken');
-
+// Dummy auth middleware for direct access (no login required)
 const auth = (req, res, next) => {
-  const token = req.header('Authorization')?.replace('Bearer ', '');
-
-  if (!token) {
-    return res.status(401).json({ message: 'No token, authorization denied' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    res.status(401).json({ message: 'Token is not valid' });
-  }
+  // Inject a default guest user so all backend operations work
+  req.user = { id: 'guest-user-123', username: 'Guest' };
+  next();
 };
 
 module.exports = auth;
