@@ -1,9 +1,6 @@
 const { GoogleGenAI } = require('@google/genai');
 const Todo = require('../models/Todo');
 
-// Initialize Gemini API
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
 exports.generatePlan = async (req, res) => {
   try {
     const { goal, durationDays, dailyHours, startDate } = req.body;
@@ -12,7 +9,9 @@ exports.generatePlan = async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields: goal, durationDays, dailyHours, startDate' });
     }
 
-    // User-defined prompt format with strict JSON schema
+    // Lazy-initialize Gemini client per request (safe for startup)
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
     const prompt = `
 You are a productivity planner AI.
 
@@ -56,9 +55,7 @@ Output ONLY the JSON. No markdown, no explanation text outside the JSON.
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-      },
+      config: { responseMimeType: 'application/json' },
     });
 
     const aiText = response.text;
@@ -103,7 +100,6 @@ Output ONLY the JSON. No markdown, no explanation text outside the JSON.
 
     const insertedTodos = await Todo.insertMany(todosToInsert);
 
-    // Return the raw plan + saved todos for the frontend to display
     res.json({
       message: 'Plan generated and saved successfully',
       plan: planDays,
