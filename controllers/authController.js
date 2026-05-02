@@ -5,10 +5,13 @@ const bcrypt = require('bcryptjs');
 exports.register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    let user = await User.findOne({ email });
-    if (user) return res.status(400).json({ message: 'User already exists' });
+    let userByEmail = await User.findOne({ email });
+    if (userByEmail) return res.status(400).json({ message: 'Email is already registered' });
 
-    user = new User({ username, email, password });
+    let userByUsername = await User.findOne({ username });
+    if (userByUsername) return res.status(400).json({ message: 'Username is already taken' });
+
+    let user = new User({ username, email, password });
     await user.save();
 
     const payload = { user: { id: user.id, username: user.username } };
@@ -17,7 +20,11 @@ exports.register = async (req, res) => {
       res.json({ token, user: { id: user.id, username: user.username, email: user.email } });
     });
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    if (err.code === 11000) {
+      return res.status(400).json({ message: 'Username or email already exists' });
+    }
+    console.error('Registration Error:', err);
+    res.status(500).json({ message: 'Server error during registration' });
   }
 };
 
