@@ -9,6 +9,8 @@ const todoSchema = new mongoose.Schema({
   priority: { type: String, enum: ['High', 'Medium', 'Low'], default: 'Medium' },
   category: { type: String, enum: ['Study', 'Work', 'Personal', 'Health', 'Other'], default: 'Personal' },
   isCompleted: { type: Boolean, default: false },
+  order: { type: Number, default: 0 },
+  tags: [{ type: String }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Todo', todoSchema);

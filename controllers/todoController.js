@@ -1,4 +1,6 @@
 const Todo = require('../models/Todo');
+const { GoogleGenAI } = require('@google/genai');
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 /**
  * GET /api/todos
@@ -109,5 +111,79 @@ exports.deleteTodo = async (req, res) => {
     res.json({ message: 'Todo removed' });
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+/**
+ * PUT /api/todos/reorder
+ * Reorder an array of tasks.
+ */
+exports.reorderTodos = async (req, res) => {
+  try {
+    const { items } = req.body; // array of { id, order }
+    if (!items || !Array.isArray(items)) return res.status(400).json({ message: 'Invalid items array' });
+    
+    const updates = items.map(item => 
+      Todo.updateOne(
+        { _id: item.id, userId: req.user.id },
+        { $set: { order: item.order } }
+      )
+    );
+    await Promise.all(updates);
+    res.json({ message: 'Reordered successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message });
+  }
+};
+
+/**
+ * POST /api/todos/:id/breakdown
+ * Use AI to break a task down into subtasks.
+ */
+exports.breakdownTodo = async (req, res) => {
+  try {
+    const parent = await Todo.findById(req.params.id);
+    if (!parent) return res.status(404).json({ message: 'Todo not found' });
+    if (parent.userId.toString() !== req.user.id) return res.status(401).json({ message: 'Not authorized' });
+
+    const prompt = `
+You are a productivity AI. Break down the following task into exactly 3 smaller, actionable sub-tasks.
+Task: "${parent.title}"
+Description: "${parent.description || ''}"
+
+Output strictly in JSON format like this:
+{
+  "subtasks": [
+    { "title": "Subtask 1", "description": "Brief desc" },
+    { "title": "Subtask 2", "description": "Brief desc" },
+    { "title": "Subtask 3", "description": "Brief desc" }
+  ]
+}
+Output ONLY the JSON. No markdown.
+`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: { responseMimeType: 'application/json' },
+    });
+
+    const parsed = JSON.parse(response.text);
+    if (!parsed.subtasks || !Array.isArray(parsed.subtasks)) throw new Error('Invalid AI response structure');
+
+    const todosToInsert = parsed.subtasks.map(sub => ({
+      userId: req.user.id,
+      title: sub.title,
+      description: sub.description || '',
+      date: parent.date, // Inherit parent's date
+      priority: parent.priority, // Inherit parent's priority
+      category: parent.category, // Inherit parent's category
+      order: parent.order + 1 // Place them immediately after
+    }));
+
+    const inserted = await Todo.insertMany(todosToInsert);
+    res.json({ message: 'Breakdown successful', newTodos: inserted });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error during breakdown', error: err.message });
   }
 };
