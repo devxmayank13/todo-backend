@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
-
+const authRoutes = require('./routes/auth');
 const todoRoutes = require('./routes/todos');
 const aiPlannerRoutes = require('./routes/aiPlanner');
 
@@ -23,6 +23,7 @@ app.use(express.json());
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
 // Routes
+app.use('/api/auth', authRoutes);
 
 app.use('/api/todos', todoRoutes);
 app.use('/api/ai-planner', aiPlannerRoutes);
